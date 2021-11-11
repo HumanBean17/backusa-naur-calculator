@@ -2,7 +2,18 @@
 import io
 import sys
 
+global right_hand
+
 # Terminals
+EQUALS = "="
+MINUS = "-"
+PLUS = "+"
+LEFT_ROUND_BRACKET = "("
+RIGHT_ROUND_BRACKET = ")"
+LEFT_SQUARE_BRACKET = "["
+RIGHT_SQUARE_BRACKET = "]"
+DEGREE = "^"
+
 METKI = "метки"
 SEMICOLON = ";"
 COLON = ":"
@@ -10,6 +21,8 @@ DIGITS = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", 
 LITERALS = ["А", "Б", "В", "Г", "Д", "Е", "Ё", "Ж", "З", "И", "Й", "К", "Л", "М", "Н", "О", "П", "Р", "С", "Т", "У", "Ф", "Х", "Ц", "Ч", "Ш", "Щ", "Ъ", "Ы", "Ь", "Э", "Ю", "Я", "а", "б", "в", "г", "д", "е", "ё", "ж", "з", "и", "й", "к", "л", "м", "н", "о", "п", "р", "с", "т", "у", "ф", "х", "ц", "ч", "ш", "щ", "ъ", "ы", "ь", "э", "ю", "я"]
 
 dump = []
+
+right_hand = None
 
 
 def get_next_token(tokens, number):
@@ -90,6 +103,45 @@ def operator(tokens):
             raise Exception("Ошибка при обработке Оператора. " + next_token + " . После метки \":\" ожидалась переменная")
         else:
             raise Exception("Ошибка при обработке Оператора. Получен \'" + next_token + "\' . Ожидалась переменная")
+    next_token = get_next_token(tokens, 1)
+    if next_token != EQUALS:
+        err_msg = "Ошибка при обработке Оператора. После переменной ожидалось \'=\'"
+        raise Exception(err_msg)
+    return get_next_token(tokens, 1)
+
+
+def block_3(tokens, next_token):
+    if is_var(next_token):
+        return get_next_token(tokens, 1)
+    elif is_float(next_token):
+        return get_next_token(tokens, 1)
+    elif next_token == LEFT_ROUND_BRACKET:
+        pass
+    elif next_token == LEFT_SQUARE_BRACKET:
+        pass
+
+
+def block_2(tokens, next_token):
+    next_token = block_3(tokens, next_token)
+    while True:
+        if next_token != DEGREE:
+            return get_next_token(tokens, 1)
+        next_token = get_next_token(tokens, 1)
+        block_3(tokens, next_token)
+
+
+
+def block_1(tokens, next_token):
+    block_2(tokens)
+
+
+def right_part(next_token, tokens):
+    if next_token == MINUS:
+        next_token = get_next_token(tokens, 1)
+    while True:
+        block_1(tokens, get_next_token(tokens, 1))
+        next_token = get_next_token(tokens, 1)
+
 
 
 def _set(tokens):
@@ -100,7 +152,7 @@ if __name__ == "__main__":
     reload(sys)
     sys.setdefaultencoding('utf-8')
 
-    s = "метки 5.67 ; 1.22 567 : А13121 = 5.1 + 2.1 * [ ( 4.1 * 1.1 ) ]"
+    s = "метки 5.67 ; 1.22 567 : А13121 = 5.1 + 2.1 " #* [ ( 4.1 * 1.1 ) ]
     user_input = s.decode().split()
 
     definition(user_input)
