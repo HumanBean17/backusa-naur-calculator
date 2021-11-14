@@ -2,7 +2,9 @@
 import io
 import sys
 
-global right_hand
+
+global k
+k = 1
 
 # Terminals
 EQUALS = "="
@@ -16,9 +18,13 @@ DEGREE = "^"
 MULT = "*"
 DIV = "/"
 
-METKI = "метки"
+METKI = "\"Метки\""
+ANALIZ = "\"Анализ\""
+
 SEMICOLON = ";"
 COLON = ":"
+COMMA = ","
+
 DIGITS = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F"]
 LITERALS = ["А", "Б", "В", "Г", "Д", "Е", "Ё", "Ж", "З", "И", "Й", "К", "Л", "М", "Н", "О", "П", "Р", "С", "Т", "У", "Ф", "Х", "Ц", "Ч", "Ш", "Щ", "Ъ", "Ы", "Ь", "Э", "Ю", "Я", "а", "б", "в", "г", "д", "е", "ё", "ж", "з", "и", "й", "к", "л", "м", "н", "о", "п", "р", "с", "т", "у", "ф", "х", "ц", "ч", "ш", "щ", "ъ", "ы", "ь", "э", "ю", "я"]
 
@@ -31,7 +37,7 @@ def get_next_token(tokens, number):
             result = tokens.pop(0)
         except IndexError:
             print("<конец строки>")
-            return None
+            sys.exit(0)
         dump.append(result)
     else:
         result = tokens[:number]
@@ -75,46 +81,57 @@ def is_float(token):
         return False
     return True
 
+######################################################
+
 
 def definition(tokens):
     next_token = get_next_token(tokens, 1)
-    if next_token != METKI:
-        raise Exception("Ошибка при обработке Определения. " + next_token + " . Определение должно начинаться с " + METKI)
     while True:
-        next_token = get_next_token(tokens, 1)
-        if is_float(next_token) is False:
-            err_token = "".join(next_token)
-            err_msg = "Ошибка при обработке Определения. " + err_token + " . После 'метки' должны быть вещественные числа"
+        if next_token != METKI:
+            err_msg = "Ошибка при обработке Определения. Получено \'" + next_token + "\' . Определение должно начинаться с \'" + METKI + "\'"
             raise Exception(err_msg)
-        next_token = get_next_token(tokens, 1)
-        if next_token != SEMICOLON:
-            tokens.insert(0, next_token)
-            break
+        while True:
+            next_token = get_next_token(tokens, 1)
+            if is_float(next_token) is False:
+                err_msg = "Ошибка при обработке Определения. Получено \'" + next_token + "\' . Ожидалось \'" + METKI + "\'"
+                raise Exception(err_msg)
+            next_token = get_next_token(tokens, 1)
+            if next_token != SEMICOLON:
+                break
+        if next_token != METKI:
+            return next_token
+
+######################################################
 
 
-def operator(tokens):
-    next_token = get_next_token(tokens, 1)
-    is_metka = False
-    if is_int(next_token) is True:
-        is_metka = True
+def operator(tokens, next_token):
+    while True:
+        is_metka = False
+        if is_int(next_token) is True:
+            is_metka = True
+            next_token = get_next_token(tokens, 1)
+            if next_token != COLON:
+                err_msg = "Ошибка при обработке Оператора. " + next_token + " . После Метки ожидался символ \'" + COLON + "\'"
+                raise Exception(err_msg)
+            next_token = get_next_token(tokens, 1)
+        if is_var(next_token) is False:
+            if is_metka is True:
+                err_msg = "Ошибка при обработке Оператора. " + next_token + " . После метки \':\' ожидалась переменная"
+                raise Exception(err_msg)
+            else:
+                err_msg = "Ошибка при обработке Оператора. Получен \'" + next_token + "\' . Ожидалась переменная"
+                raise Exception(err_msg)
         next_token = get_next_token(tokens, 1)
-        if next_token != COLON:
-            err_msg = "Ошибка при обработке Оператора. " + next_token + " . После Метки ожидался символ \'" + COLON + "\'"
+        if next_token != EQUALS:
+            err_msg = "Ошибка при обработке Оператора. После переменной ожидалось \'=\'"
             raise Exception(err_msg)
-        next_token = get_next_token(tokens, 1)
-    if is_var(next_token) is False:
-        if is_metka is True:
-            raise Exception("Ошибка при обработке Оператора. " + next_token + " . После метки \":\" ожидалась переменная")
-        else:
-            raise Exception("Ошибка при обработке Оператора. Получен \'" + next_token + "\' . Ожидалась переменная")
-    next_token = get_next_token(tokens, 1)
-    if next_token != EQUALS:
-        err_msg = "Ошибка при обработке Оператора. После переменной ожидалось \'=\'"
-        raise Exception(err_msg)
-    return get_next_token(tokens, 1)
+        next_token = right_part(tokens, get_next_token(tokens, 1))
+        if next_token == ANALIZ:
+            return next_token
 
 
 def block_3(tokens, next_token):
+    global k
     if next_token is None:
         err_msg = "Ошибка при обработке Правой части. После операнда отсутствует оператор."
         raise Exception(err_msg)
@@ -123,9 +140,24 @@ def block_3(tokens, next_token):
     elif is_float(next_token):
         return get_next_token(tokens, 1)
     elif next_token == LEFT_ROUND_BRACKET:
-        pass
+        next_token = get_next_token(tokens, 1)
+        next_token = right_part(tokens, next_token)
+        if next_token != RIGHT_ROUND_BRACKET:
+            err_msg = "Ошибка при обработке правой части. Отсутствует " + "\')\'" + ". Получено \'" + str(next_token) + "\'"
+            raise Exception(err_msg)
+        return get_next_token(tokens, 1)
     elif next_token == LEFT_SQUARE_BRACKET:
-        pass
+        if k > 2:
+            err_msg = "Ошибка при обработке правой части. Получена глубина вложенности квадратных скобок > 2."
+            raise Exception(err_msg)
+        k += 1
+        next_token = get_next_token(tokens, 1)
+        next_token = right_part(tokens, next_token)
+        k = 1
+        if next_token != RIGHT_SQUARE_BRACKET:
+            err_msg = "Ошибка при обработке правой части. Отсутствует " + "\']\'" + ". Получено \'" + str(next_token) + "\'"
+            raise Exception(err_msg)
+        return get_next_token(tokens, 1)
     else:
         raise Exception("Ошибка при обработке Правой части.")
 
@@ -156,22 +188,38 @@ def right_part(tokens, next_token):
         if next_token is None:
             return
         elif next_token != PLUS and next_token != MINUS:
-            raise Exception
+            return next_token
         next_token = get_next_token(tokens, 1)
 
+######################################################
 
-def _set(tokens):
-    pass
+
+def _set(tokens, next_token):
+    while True:
+        if next_token != ANALIZ:
+            err_msg = "Ошибка при обработке Множества. Получено \'" + next_token + "\'. Ожидалось \'" + ANALIZ + "\'"
+            raise Exception(err_msg)
+        next_token = get_next_token(tokens, 1)
+        while True:
+            if is_int(next_token) is False:
+                err_msg = "Ошибка при обработке Множества. Получено \'" + next_token + "\'. Ожидалось целое число"
+                raise Exception(err_msg)
+            next_token = get_next_token(tokens, 1)
+            if next_token != COMMA and next_token != ANALIZ:
+                err_msg = "Ошибка при обработке Множества. Получено \'" + next_token + "\'. Ожидался символ \'" + COMMA + "\' или <конец строки>"
+                raise Exception(err_msg)
+            elif next_token == ANALIZ:
+                break
+            next_token = get_next_token(tokens, 1)
 
 
 if __name__ == "__main__":
     reload(sys)
     sys.setdefaultencoding('utf-8')
 
-    s = "метки 5.67 ; 1.22 567 : А13121 = 5.1 + 2.1 * 1.0 [ ( 4.1 * 1.1 ) ]"
+    s = "\"Метки\" 5.67 ; 1.22 ; 5.67 ; 1.22 \"Метки\" 5.67 ; 1.22 ; 5.67 ; 1.22 567 : А13121 = 5.1 + ( ( 4.1 + 1.1 ) + 3.1 + 2.7 + [ [ 1.0 / 1.2 ] ] ) А13121 = 5.1 + ( ( 4.1 + 1.1 ) + 3.1 + 2.7 + [ [ 1.0 / 1.2 ] ] ) \"Анализ\" 233 , 899 , 123 , 105 \"Анализ\" 100 , 100"
     user_input = s.decode().split()
 
-    definition(user_input)
-    a = operator(user_input)
-    right_part(user_input, a)
-    _set(user_input)
+    nt = definition(user_input)
+    nt = operator(user_input, nt)
+    _set(user_input, nt)
