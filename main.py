@@ -3,10 +3,14 @@ import Tkinter as tk
 from tkinter import font as tkFont
 import sys
 
+global variables, k, rp, b1, b2, b3
 
-global k
 k = 1
-
+rp = 0
+b1 = 0
+b2 = 0
+b3 = 0
+variables = dict()
 
 # Terminals
 EQUALS = "="
@@ -34,11 +38,19 @@ dump = []
 
 
 def get_next_token(tokens, number):
+    global variables
+
     if number == 1:
         try:
             result = tokens.pop(0)
         except IndexError:
-            err_msg = "<конец строки>"
+            err_msg = ""
+            lst = []
+            for var in variables:
+                lst.append(var + " = " + str(variables[var]))
+            lst.reverse()
+            for elem in lst:
+                err_msg += elem + "\n"
             raise Exception(err_msg)
         dump.append(result)
     else:
@@ -107,6 +119,8 @@ def definition(tokens):
 
 
 def operator(tokens, next_token):
+    global variables, rp
+
     while True:
         is_metka = False
         if is_int(next_token) is True:
@@ -123,70 +137,94 @@ def operator(tokens, next_token):
             else:
                 err_msg = "Ошибка при обработке Оператора. Ожидалась переменная. Получено \'" + next_token + "\'"
                 raise Exception(err_msg)
+        current_var = next_token
+        variables[current_var] = None
         next_token = get_next_token(tokens, 1)
         if next_token != EQUALS:
             err_msg = "Ошибка при обработке Оператора. После переменной ожидалось \'=\'"
             raise Exception(err_msg)
         next_token = right_part(tokens, get_next_token(tokens, 1))
+        variables[current_var] = rp
         if next_token == ANALIZ:
             return next_token
 
 
 def block_3(tokens, next_token):
-    global k
+    global k, b3, variables
+
     if next_token is None:
-        err_msg = "Ошибка при обработке Правой части. После операнда отсутствует оператор."
+        err_msg = "Ошибка при обработке Правой Части. После операнда отсутствует оператор."
         raise Exception(err_msg)
     elif is_var(next_token):
+        if next_token not in variables:
+            err_msg = "Ошибка при обработке Правой Части. Переменная \'" + next_token + "\' не определена"
+            raise Exception(err_msg)
+        b3 = float(variables[next_token])
         return get_next_token(tokens, 1)
     elif is_float(next_token):
+        b3 = float(next_token)
         return get_next_token(tokens, 1)
     elif next_token == LEFT_ROUND_BRACKET:
         next_token = get_next_token(tokens, 1)
         next_token = right_part(tokens, next_token)
         if next_token != RIGHT_ROUND_BRACKET:
-            err_msg = "Ошибка при обработке правой части. Отсутствует " + "\')\'" + ". Получено \'" + str(next_token) + "\'"
+            err_msg = "Ошибка при обработке Правой Части. Отсутствует " + "\')\'" + ". Получено \'" + str(next_token) + "\'"
             raise Exception(err_msg)
         return get_next_token(tokens, 1)
     elif next_token == LEFT_SQUARE_BRACKET:
         if k > 2:
-            err_msg = "Ошибка при обработке правой части. Получена глубина вложенности квадратных скобок > 2."
+            err_msg = "Ошибка при обработке Правой Части. Получена глубина вложенности квадратных скобок > 2."
             raise Exception(err_msg)
         k += 1
         next_token = get_next_token(tokens, 1)
         next_token = right_part(tokens, next_token)
         k = 1
         if next_token != RIGHT_SQUARE_BRACKET:
-            err_msg = "Ошибка при обработке правой части. Отсутствует " + "\']\'" + ". Получено \'" + str(next_token) + "\'"
+            err_msg = "Ошибка при обработке Правой Части. Отсутствует " + "\']\'" + ". Получено \'" + str(next_token) + "\'"
             raise Exception(err_msg)
         return get_next_token(tokens, 1)
+    elif is_int(next_token):
+        err_msg = "Ошибка при обработке Правой Части. Ожидалось вещественное число, переменная или круглая/квадратная скобка. Получено целое число \'" + str(next_token) + "\'"
+        raise Exception(err_msg)
     else:
-        raise Exception("Ошибка при обработке Правой части.")
+        err_msg = "Ошибка при обработке Правой Части. Ожидался операнд или открыващая скобка. Получено \'" + str(next_token) + "\'"
+        raise Exception(err_msg)
 
 
 def block_2(tokens, next_token):
+    global b2, b3
     next_token = block_3(tokens, next_token)
+    b2 = b3
     while True:
         if next_token != DEGREE:
             return next_token
-        next_token = get_next_token(tokens, 1)
-        next_token = block_3(tokens, next_token)
+        next_token = block_3(tokens, get_next_token(tokens, 1))
+        b2 = b2 ** b3
 
 
 def block_1(tokens, next_token):
+    global b1, b2
     next_token = block_2(tokens, next_token)
+    b1 = b2
     while True:
         if next_token != MULT and next_token != DIV:
             return next_token
-        next_token = get_next_token(tokens, 1)
-        next_token = block_2(tokens, next_token)
+        sign = next_token
+        next_token = block_2(tokens, get_next_token(tokens, 1))
+        if sign == MULT:
+            b1 *= b2
+        elif sign == DIV:
+            b1 /= b2
 
 
 def right_part(tokens, next_token):
+    global rp, b1
     if next_token == MINUS:
         next_token = get_next_token(tokens, 1)
+    rp = 0
     while True:
         next_token = block_1(tokens, next_token)
+        rp += b1
         if next_token is None:
             return
         elif next_token != PLUS and next_token != MINUS:
