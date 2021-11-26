@@ -3,13 +3,15 @@ import Tkinter as tk
 from tkinter import font as tkFont
 import sys
 
-global variables, k, rp, b1, b2, b3
+global variables, k, err_code
+    # rp,  b1, b2, b3, \
 
+err_code = ""
 k = 1
-rp = 0
-b1 = 0
-b2 = 0
-b3 = 0
+# rp = 0
+# b1 = 0
+# b2 = 0
+# b3 = 0
 variables = dict()
 
 # Terminals
@@ -61,37 +63,50 @@ def get_next_token(tokens, number):
 
 
 def is_letter(token):
-    return token in LITERALS
+    global err_code
+    if token not in LITERALS:
+        err_code = "Содержит символы не из русского алфавита."
+        return False
+    return True
 
 
 def is_var(token):
+    global err_code
     for i in range(0, len(token)):
         current = token[i]
         if i == 0 and (is_letter(current) is False):
-            err_msg = "Ошибка при обработке Оператора. " + current + ". Переменная должна начинаться с буквы"
+            err_code = "Переменная должна начинаться с буквы рус. алфавита."
             return False
             # raise Exception(err_msg)
         elif (is_letter(current) or is_digit(current)) is False:
-            err_msg = "Ошибка при обработке Оператора. " + current + ". Переменная должна содержать или рус. буквы, или 16-тиричные цифры"
+            err_code = "Переменная должна содержать или рус. буквы, или 16-тиричные цифры."
             return False
             # raise Exception(err_msg)
     return True
 
 
 def is_digit(token):
-    return token in DIGITS
+    global err_code
+    if token not in DIGITS:
+        err_code = "Язык поддерживает только цифры 16-тиричной арифметики."
+        return False
+    return True
 
 
 def is_int(token):
+    global err_code
     for elem in token:
         if not (is_digit(elem)):
+            err_code = "Целое число должно состоять из 16-тиричных цифр."
             return False
     return True
 
 
 def is_float(token):
+    global err_code
     token = token.split('.')
     if (len(token) != 2) or (is_int(token[0]) is False) or (is_int(token[1]) is False):
+        err_code = "Вещественное число должно состоять из целых чисел разделенных точкой."
         return False
     return True
 
@@ -99,16 +114,24 @@ def is_float(token):
 
 
 def definition(tokens):
+    global err_code
     next_token = get_next_token(tokens, 1)
     while True:
         if next_token != METKI:
-            err_msg = "Ошибка при обработке Определения. Получено \'" + next_token + "\' . Определение должно начинаться с \'" + METKI + "\'"
+            err_msg = "Ошибка при обработке Определения . Определение должно начинаться с \'" + METKI + "\'. Получено \'" + next_token + "\'. "
             raise Exception(err_msg)
         while True:
             next_token = get_next_token(tokens, 1)
             if is_float(next_token) is False:
-                err_msg = "Ошибка при обработке Определения. Получено \'" + next_token + "\' . Ожидалось \'" + METKI + "\'"
-                raise Exception(err_msg)
+                if is_int(next_token) is True:
+                    err_msg = "Ошибка при обработке Определения. Ожидалось вещественное число. Получено целое число \'" + next_token + "\'. " + err_code
+                    raise Exception(err_msg)
+                elif is_var(next_token) is True:
+                    err_msg = "Ошибка при обработке Определения. Ожидалось вещественное число. Получена переменная \'" + next_token + "\'. " + err_code
+                    raise Exception(err_msg)
+                else:
+                    err_msg = "Ошибка при обработке Определения. Ожидалось вещественное число. Получено \'" + next_token + "\'. " + err_code
+                    raise Exception(err_msg)
             next_token = get_next_token(tokens, 1)
             if next_token != SEMICOLON:
                 break
@@ -119,7 +142,7 @@ def definition(tokens):
 
 
 def operator(tokens, next_token):
-    global variables, rp
+    global variables, err_code
 
     while True:
         is_metka = False
@@ -127,90 +150,90 @@ def operator(tokens, next_token):
             is_metka = True
             next_token = get_next_token(tokens, 1)
             if next_token != COLON:
-                err_msg = "Ошибка при обработке Оператора. " + next_token + " . После Метки ожидался символ \'" + COLON + "\'"
+                err_msg = "Ошибка при обработке Оператора. После Метки ожидалось \'" + COLON + "\'. Получено " + next_token + ". "
                 raise Exception(err_msg)
             next_token = get_next_token(tokens, 1)
         if is_var(next_token) is False:
             if is_metka is True:
-                err_msg = "Ошибка при обработке Оператора. После Метки \':\' ожидалась переменная. Получено: \'" + next_token + "\'"
+                err_msg = "Ошибка при обработке Оператора. После Метки \':\' ожидалась Переменная. Получено: \'" + next_token + "\'. " + err_code
                 raise Exception(err_msg)
             else:
-                err_msg = "Ошибка при обработке Оператора. Ожидалась переменная. Получено \'" + next_token + "\'"
+                err_msg = "Ошибка при обработке Оператора. Ожидалась Переменная или Метка. Получено \'" + next_token + "\'. " + err_code
                 raise Exception(err_msg)
         current_var = next_token
         variables[current_var] = None
         next_token = get_next_token(tokens, 1)
         if next_token != EQUALS:
-            err_msg = "Ошибка при обработке Оператора. После переменной ожидалось \'=\'"
+            err_msg = "Ошибка при обработке Оператора. После переменной ожидалось \'=\'. "
             raise Exception(err_msg)
-        next_token = right_part(tokens, get_next_token(tokens, 1))
+        next_token, rp = right_part(tokens, get_next_token(tokens, 1))
         variables[current_var] = rp
         if next_token == ANALIZ:
             return next_token
 
 
 def block_3(tokens, next_token):
-    global k, b3, variables
+    global k, variables, err_code
 
     if next_token is None:
-        err_msg = "Ошибка при обработке Правой Части. После операнда отсутствует оператор."
+        err_msg = "Ошибка при обработке Правой Части. После операнда отсутствует оператор. " + err_code
         raise Exception(err_msg)
     elif is_var(next_token):
         if next_token not in variables:
             err_msg = "Ошибка при обработке Правой Части. Переменная \'" + next_token + "\' не определена"
             raise Exception(err_msg)
         b3 = float(variables[next_token])
-        return get_next_token(tokens, 1)
+        return get_next_token(tokens, 1), b3
     elif is_float(next_token):
         b3 = float(next_token)
-        return get_next_token(tokens, 1)
+        return get_next_token(tokens, 1), b3
     elif next_token == LEFT_ROUND_BRACKET:
         next_token = get_next_token(tokens, 1)
-        next_token = right_part(tokens, next_token)
+        next_token, rp = right_part(tokens, next_token)
         if next_token != RIGHT_ROUND_BRACKET:
             err_msg = "Ошибка при обработке Правой Части. Отсутствует " + "\')\'" + ". Получено \'" + str(next_token) + "\'"
             raise Exception(err_msg)
-        return get_next_token(tokens, 1)
+        return get_next_token(tokens, 1), rp
     elif next_token == LEFT_SQUARE_BRACKET:
         if k > 2:
             err_msg = "Ошибка при обработке Правой Части. Получена глубина вложенности квадратных скобок > 2."
             raise Exception(err_msg)
         k += 1
         next_token = get_next_token(tokens, 1)
-        next_token = right_part(tokens, next_token)
+        next_token, rp = right_part(tokens, next_token)
         k = 1
         if next_token != RIGHT_SQUARE_BRACKET:
             err_msg = "Ошибка при обработке Правой Части. Отсутствует " + "\']\'" + ". Получено \'" + str(next_token) + "\'"
             raise Exception(err_msg)
-        return get_next_token(tokens, 1)
+        return get_next_token(tokens, 1), rp
     elif is_int(next_token):
-        err_msg = "Ошибка при обработке Правой Части. Ожидалось вещественное число, переменная или круглая/квадратная скобка. Получено целое число \'" + str(next_token) + "\'"
+        err_msg = "Ошибка при обработке Правой Части. Ожидалось вещественное число, переменная или круглая/квадратная скобка. Получено целое число \'" + str(next_token) + "\'. " + err_code
         raise Exception(err_msg)
     else:
-        err_msg = "Ошибка при обработке Правой Части. Ожидался операнд или открыващая скобка. Получено \'" + str(next_token) + "\'"
+        err_msg = "Ошибка при обработке Правой Части. Ожидался операнд или открыващая скобка. Получено \'" + str(next_token) + "\'. " + err_code
         raise Exception(err_msg)
 
 
 def block_2(tokens, next_token):
-    global b2, b3
-    next_token = block_3(tokens, next_token)
+    # global b2, b3
+    next_token, b3 = block_3(tokens, next_token)
     b2 = b3
     while True:
         if next_token != DEGREE:
-            return next_token
-        next_token = block_3(tokens, get_next_token(tokens, 1))
+            return next_token, b2
+        next_token, b3 = block_3(tokens, get_next_token(tokens, 1))
         b2 = b2 ** b3
 
 
 def block_1(tokens, next_token):
-    global b1, b2
-    next_token = block_2(tokens, next_token)
+    # global b1, b2
+    next_token, b2 = block_2(tokens, next_token)
     b1 = b2
     while True:
         if next_token != MULT and next_token != DIV:
-            return next_token
+            return next_token, b1
         sign = next_token
-        next_token = block_2(tokens, get_next_token(tokens, 1))
+        next_token, b2 = block_2(tokens, get_next_token(tokens, 1))
         if sign == MULT:
             b1 *= b2
         elif sign == DIV:
@@ -218,35 +241,36 @@ def block_1(tokens, next_token):
 
 
 def right_part(tokens, next_token):
-    global rp, b1
+    # global rp, b1
     if next_token == MINUS:
         next_token = get_next_token(tokens, 1)
     rp = 0
     while True:
-        next_token = block_1(tokens, next_token)
+        next_token, b1 = block_1(tokens, next_token)
         rp += b1
         if next_token is None:
             return
         elif next_token != PLUS and next_token != MINUS:
-            return next_token
+            return next_token, rp
         next_token = get_next_token(tokens, 1)
 
 ######################################################
 
 
 def _set(tokens, next_token):
+    global err_code
     while True:
         if next_token != ANALIZ:
-            err_msg = "Ошибка при обработке Множества. Получено \'" + next_token + "\'. Ожидалось \'" + ANALIZ + "\'"
+            err_msg = "Ошибка при обработке Множества. Ожидалось \'" + ANALIZ + "\'. Получено \'" + next_token + "\'. "
             raise Exception(err_msg)
         next_token = get_next_token(tokens, 1)
         while True:
             if is_int(next_token) is False:
-                err_msg = "Ошибка при обработке Множества. Получено \'" + next_token + "\'. Ожидалось целое число"
+                err_msg = "Ошибка при обработке Множества. Ожидалось целое число. Получено \'" + next_token + "\'. " + err_code
                 raise Exception(err_msg)
             next_token = get_next_token(tokens, 1)
             if next_token != COMMA and next_token != ANALIZ:
-                err_msg = "Ошибка при обработке Множества. Получено \'" + next_token + "\'. Ожидался символ \'" + COMMA + "\' или <конец строки>"
+                err_msg = "Ошибка при обработке Множества. Ожидался символ \'" + COMMA + "\' или <конец строки>. Получено \'" + next_token + "\'. "
                 raise Exception(err_msg)
             elif next_token == ANALIZ:
                 break
@@ -254,6 +278,9 @@ def _set(tokens, next_token):
 
 
 def start_parse():
+    global err_code
+    err_code = ""
+    variables.clear()
     user_input = text_edit.get(0.1, tk.END).decode().split()
     try:
         nt = definition(user_input)
@@ -298,7 +325,7 @@ if __name__ == "__main__":
           "Вещ. = Цел “.” Цел\n" \
           "Цел = Цифра…Цифра\n" \
           "Буква = “А” ! “Б” ! … “Я”\n" \
-          "Цифра = “0” ! “!” … “F”"
+          "Цифра = “0” ! “1” … “F”"
     label = tk.Label(root, text=bnf, font="14", justify=tk.LEFT)
     label.place(relx=0.53, rely=0.039)
 
@@ -306,7 +333,7 @@ if __name__ == "__main__":
     btn.place(relx=0.7, rely=0.5, width=200)
 
     # v = tk.StringVar()
-    output = tk.Text(root, borderwidth=0.5, state=tk.DISABLED, relief=tk.SOLID)
+    output = tk.Text(root, borderwidth=0.5, wrap=tk.WORD, state=tk.DISABLED, relief=tk.SOLID)
     output.place(relx=0.013, rely=0.8, height=100, width=1150, bordermode=tk.OUTSIDE)
 
     root.mainloop()
