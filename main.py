@@ -3,9 +3,13 @@ import Tkinter as tk
 from tkinter import font as tkFont
 import sys
 
-global variables, k, err_code
+global current_token, idx, variables, k, err_code, global_input
     # rp,  b1, b2, b3, \
 
+is_error = True
+current_token = None
+idx = 0
+global_input = []
 err_code = ""
 k = 1
 # rp = 0
@@ -40,11 +44,13 @@ dump = []
 
 
 def get_next_token(tokens, number):
-    global variables
+    global is_error, current_token, idx, variables
 
     if number == 1:
         try:
             result = tokens.pop(0)
+            current_token = result
+            idx += 1
         except IndexError:
             err_msg = ""
             lst = []
@@ -53,6 +59,7 @@ def get_next_token(tokens, number):
             lst.reverse()
             for elem in lst:
                 err_msg += elem + "\n"
+            is_error = False
             raise Exception(err_msg)
         dump.append(result)
     else:
@@ -237,16 +244,25 @@ def block_1(tokens, next_token):
         if sign == MULT:
             b1 *= b2
         elif sign == DIV:
-            b1 /= b2
+            if b2 != 0.0:
+                b1 /= b2
+            else:
+                err_msg = "Ошибка при обработке правой части. Деление на \'0\'"
+                raise Exception(err_msg)
 
 
 def right_part(tokens, next_token):
     # global rp, b1
+    is_minus = False
     if next_token == MINUS:
         next_token = get_next_token(tokens, 1)
+        is_minus = True
     rp = 0
     while True:
         next_token, b1 = block_1(tokens, next_token)
+        if is_minus:
+            b1 = -b1
+            is_minus = False
         rp += b1
         if next_token is None:
             return
@@ -278,22 +294,75 @@ def _set(tokens, next_token):
 
 
 def start_parse():
-    global err_code
+    global is_error, current_token, idx, err_code, global_input
     err_code = ""
+    idx = 0
+    current_token = None
+    is_error = True
     variables.clear()
     user_input = text_edit.get(0.1, tk.END).decode().split()
+    global_input = text_edit.get(0.1, tk.END).decode().strip().split("\n")
+    i = 0
+    while True:
+        if i % 2 == 0:
+            global_input.insert(i + 1, "\n")
+        i += 1
+        if i == len(global_input):
+            break
+    new_global_input = []
+    for i in range(0, len(global_input)):
+        if global_input[i] == "\n":
+            tmp = global_input[i - 1].split()
+            new_global_input.extend(tmp)
+            new_global_input.append("\n")
     try:
         nt = definition(user_input)
         nt = operator(user_input, nt)
         _set(user_input, nt)
     except Exception as e:
         print(e.message)
+        text_edit.delete(0.1, tk.END)
+        idx -= 1
+        while new_global_input[idx] != current_token:
+            idx += 1
+        tmp = add_spaces(new_global_input[:idx])
+        if tmp[0] == " ":
+            tmp.pop(0)
+        text_edit.insert(tk.END, "".join(tmp))
+        tmp = new_global_input[idx:]
+        tmp = tmp[0] + " "
+        if is_error:
+            text_edit.insert(tk.END, tmp, "warning")
+        else:
+            text_edit.insert(tk.END, tmp)
+        try:
+            text_edit.insert(tk.END, "".join(add_spaces(new_global_input[idx + 1:])))
+        except Exception as e:
+            text_edit.insert(tk.END, "".join(new_global_input[idx:]))
         output.configure(state=tk.NORMAL)
         output.delete(0.1, tk.END)
         output.insert(0.1, e.message)
         output.configure(state=tk.DISABLED)
-        # v.set(e.message)
         return e.message
+
+
+def add_spaces(lst):
+    tmp = lst[:]
+    i = 0
+    while True:
+        if i % 2 == 0:
+            tmp.insert(i + 1, " ")
+        i += 1
+        if i == len(tmp):
+            break
+    i = 0
+    while True:
+        if tmp[i] == "\n":
+            tmp.pop(i + 1)
+        i += 1
+        if i == len(tmp):
+            break
+    return tmp
 
 
 if __name__ == "__main__":
@@ -307,6 +376,7 @@ if __name__ == "__main__":
 
     helv36 = tkFont.Font(family='Courier New', size=14)
     text_edit = tk.Text(root, borderwidth=0.5, wrap=tk.WORD, relief=tk.SOLID)
+    text_edit.tag_config('warning', background="red", foreground="white")
     text_edit['font'] = helv36
     text_edit.place(relx=0.26, rely=0.37, anchor="c", height=500, width=600, bordermode=tk.OUTSIDE)
 
