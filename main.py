@@ -258,16 +258,27 @@ def right_part(tokens, next_token):
         next_token = get_next_token(tokens, 1)
         is_minus = True
     rp = 0
+    prev_token = None
     while True:
         next_token, b1 = block_1(tokens, next_token)
+        # if next_token == MINUS:
+        #     is_minus = True
         if is_minus:
             b1 = -b1
             is_minus = False
-        rp += b1
+
+        if prev_token == PLUS:
+            rp += b1
+        elif prev_token == MINUS:
+            rp -= b1
+        else:
+            rp += b1
+
         if next_token is None:
             return
         elif next_token != PLUS and next_token != MINUS:
             return next_token, rp
+        prev_token = next_token
         next_token = get_next_token(tokens, 1)
 
 ######################################################
