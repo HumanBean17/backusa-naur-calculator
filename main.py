@@ -1,10 +1,38 @@
 # coding=utf-8
 import Tkinter as tk
-from tkinter import font as tkFont
+import re
 import sys
 
-global current_token, idx, variables, k, err_code, global_input
-    # rp,  b1, b2, b3, \
+from tkinter import font as tkFont
+
+SKIP_PATTERNS = [
+    ur"^\n+",
+    ur"^ ",
+    ur"^\t+"
+]
+
+PATTERNS = [
+    ur"^EXPR",
+    ur"^Метки",
+    ur"^Анализ",
+    ur"^\d+\.\d+",
+    ur"^\d+",
+    ur"^[а-яА-ЯеЁ](\d+|[а-яА-ЯеЁ]+)*",
+    ur"^\+",
+    ur"^\-",
+    ur"^\*",
+    ur"^\/",
+    ur"^\=",
+    ur"^\,",
+    ur"^\;",
+    ur"^\:",
+    ur"^\[",
+    ur"^\]",
+    ur"^\(",
+    ur"^\)"
+]
+
+global prev_token, current_token, idx, variables, k, err_code, global_input
 
 is_error = True
 current_token = None
@@ -12,10 +40,6 @@ idx = 0
 global_input = []
 err_code = ""
 k = 1
-# rp = 0
-# b1 = 0
-# b2 = 0
-# b3 = 0
 variables = dict()
 
 # Terminals
@@ -30,8 +54,8 @@ DEGREE = "^"
 MULT = "*"
 DIV = "/"
 
-METKI = "\"Метки\""
-ANALIZ = "\"Анализ\""
+METKI = "Метки"
+ANALIZ = "Анализ"
 
 SEMICOLON = ";"
 COLON = ":"
@@ -39,6 +63,8 @@ COMMA = ","
 
 DIGITS = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F"]
 LITERALS = ["А", "Б", "В", "Г", "Д", "Е", "Ё", "Ж", "З", "И", "Й", "К", "Л", "М", "Н", "О", "П", "Р", "С", "Т", "У", "Ф", "Х", "Ц", "Ч", "Ш", "Щ", "Ъ", "Ы", "Ь", "Э", "Ю", "Я", "а", "б", "в", "г", "д", "е", "ё", "ж", "з", "и", "й", "к", "л", "м", "н", "о", "п", "р", "с", "т", "у", "ф", "х", "ц", "ч", "ш", "щ", "ъ", "ы", "ь", "э", "ю", "я"]
+
+TOKENS = [EQUALS, MINUS, PLUS, LEFT_ROUND_BRACKET, RIGHT_ROUND_BRACKET, LEFT_ROUND_BRACKET, RIGHT_SQUARE_BRACKET, DEGREE, MULT, DIV, METKI, SEMICOLON, COLON, COMMA] + DIGITS + LITERALS
 
 dump = []
 
@@ -180,7 +206,7 @@ def operator(tokens, next_token):
 
 
 def block_3(tokens, next_token):
-    global k, variables, err_code
+    global k, variables, err_code, prev_token
 
     if next_token is None:
         err_msg = "Ошибка при обработке Правой Части. После операнда отсутствует оператор. " + err_code
@@ -217,7 +243,11 @@ def block_3(tokens, next_token):
         err_msg = "Ошибка при обработке Правой Части. Ожидалось вещественное число, переменная или круглая/квадратная скобка. Получено целое число \'" + str(next_token) + "\'. " + err_code
         raise Exception(err_msg)
     else:
-        err_msg = "Ошибка при обработке Правой Части. Ожидался операнд или открыващая скобка. Получено \'" + str(next_token) + "\'. " + err_code
+        err_msg = "Ошибка при обработке Правой Части."
+        if next_token in [MINUS, PLUS, DIV, MULT, DEGREE]:
+            err_msg += " Два знака действия подряд."
+        # elif next_token
+        err_msg += " Ожидалось вещественное число или скобка. Получено \'" + str(next_token) + "\'. " + err_code
         raise Exception(err_msg)
 
 
@@ -233,7 +263,7 @@ def block_2(tokens, next_token):
 
 
 def block_1(tokens, next_token):
-    # global b1, b2
+    global current_token
     next_token, b2 = block_2(tokens, next_token)
     b1 = b2
     while True:
@@ -247,6 +277,7 @@ def block_1(tokens, next_token):
             if b2 != 0.0:
                 b1 /= b2
             else:
+                current_token = str(b2)
                 err_msg = "Ошибка при обработке правой части. Деление на \'0\'"
                 raise Exception(err_msg)
 
@@ -261,8 +292,6 @@ def right_part(tokens, next_token):
     prev_token = None
     while True:
         next_token, b1 = block_1(tokens, next_token)
-        # if next_token == MINUS:
-        #     is_minus = True
         if is_minus:
             b1 = -b1
             is_minus = False
@@ -304,6 +333,35 @@ def _set(tokens, next_token):
             next_token = get_next_token(tokens, 1)
 
 
+def split_tokens(str):
+    result = []
+    index = 0
+    while index < len(str):
+        flag = False
+        curr_str = str[index:]
+        for pattern in PATTERNS:
+            match = re.match(pattern, curr_str)
+            if match:
+                flag = True
+                value = match.group(0)
+                result.append(value)
+                index += len(value)
+                break
+        if flag is False:
+            for pattern in SKIP_PATTERNS:
+                match = re.match(pattern, curr_str)
+                if match:
+                    flag = True
+                    value = match.group(0)
+                    result.append(value)
+                    index += len(value)
+                    break
+        if flag is False:
+            result.append(str[index])
+            index += 1
+    return result
+
+
 def start_parse():
     global is_error, current_token, idx, err_code, global_input
     err_code = ""
@@ -311,21 +369,17 @@ def start_parse():
     current_token = None
     is_error = True
     variables.clear()
-    user_input = text_edit.get(0.1, tk.END).decode().split()
-    global_input = text_edit.get(0.1, tk.END).decode().strip().split("\n")
+    user_input = text_edit.get(0.1, tk.END).decode()
+    user_input = split_tokens(user_input)
+    global_input = user_input[:]
+    if global_input[-1] == "\n":
+        global_input.pop(-1)
     i = 0
-    while True:
-        if i % 2 == 0:
-            global_input.insert(i + 1, "\n")
+    while i < len(user_input):
+        if user_input[i] == " " or user_input[i] == "\t" or user_input[i] == "\n":
+            user_input.pop(i)
         i += 1
-        if i == len(global_input):
-            break
-    new_global_input = []
-    for i in range(0, len(global_input)):
-        if global_input[i] == "\n":
-            tmp = global_input[i - 1].split()
-            new_global_input.extend(tmp)
-            new_global_input.append("\n")
+    print(user_input)
     try:
         nt = definition(user_input)
         nt = operator(user_input, nt)
@@ -333,23 +387,20 @@ def start_parse():
     except Exception as e:
         print(e.message)
         text_edit.delete(0.1, tk.END)
-        idx -= 1
-        while new_global_input[idx] != current_token:
+        # idx -= 2
+        while global_input[idx] != current_token:
             idx += 1
-        tmp = add_spaces(new_global_input[:idx])
-        if tmp[0] == " ":
-            tmp.pop(0)
-        text_edit.insert(tk.END, "".join(tmp))
-        tmp = new_global_input[idx:]
-        tmp = tmp[0] + " "
+        text_edit.insert(tk.END, "".join(global_input[:idx]))
+        tmp = global_input[idx:]
+        tmp = tmp[0]
         if is_error:
             text_edit.insert(tk.END, tmp, "warning")
         else:
-            text_edit.insert(tk.END, tmp)
+            text_edit.insert(tk.END, "".join(tmp))
         try:
-            text_edit.insert(tk.END, "".join(add_spaces(new_global_input[idx + 1:])))
+            text_edit.insert(tk.END, "".join(global_input[idx + 1:]))
         except Exception as e:
-            text_edit.insert(tk.END, "".join(new_global_input[idx:]))
+            text_edit.insert(tk.END, "".join(global_input[idx:]))
         output.configure(state=tk.NORMAL)
         output.delete(0.1, tk.END)
         output.insert(0.1, e.message)
