@@ -105,6 +105,8 @@ def is_letter(token):
 
 def is_var(token):
     global err_code
+    if token == METKI or token == ANALIZ:
+        return False
     for i in range(0, len(token)):
         current = token[i]
         if i == 0 and (is_letter(current) is False):
@@ -168,7 +170,10 @@ def definition(tokens):
             next_token = get_next_token(tokens, 1)
             if next_token != SEMICOLON:
                 break
-        if next_token != METKI:
+        if next_token != METKI and is_float(next_token) is True:
+            err_msg = "Ошибка при обработке определения. Пропущен разделитель \'" + SEMICOLON + "\'"
+            raise Exception(err_msg)
+        elif next_token != METKI:
             return next_token
 
 ######################################################
@@ -177,8 +182,13 @@ def definition(tokens):
 def operator(tokens, next_token):
     global variables, err_code
 
+    first_iter = True
     while True:
         is_metka = False
+        if not first_iter:
+            if is_float(next_token):
+                err_msg = "Ошибка при обработке правой части. Пропущен знак действия."
+                raise Exception(err_msg)
         if is_int(next_token) is True:
             is_metka = True
             next_token = get_next_token(tokens, 1)
@@ -200,6 +210,7 @@ def operator(tokens, next_token):
             err_msg = "Ошибка при обработке Оператора. После переменной ожидалось \'=\'. "
             raise Exception(err_msg)
         next_token, rp = right_part(tokens, get_next_token(tokens, 1))
+        first_iter = False
         variables[current_var] = rp
         if next_token == ANALIZ:
             return next_token
@@ -326,7 +337,7 @@ def _set(tokens, next_token):
                 raise Exception(err_msg)
             next_token = get_next_token(tokens, 1)
             if next_token != COMMA and next_token != ANALIZ:
-                err_msg = "Ошибка при обработке Множества. Ожидался символ \'" + COMMA + "\' или <конец строки>. Получено \'" + next_token + "\'. "
+                err_msg = "Ошибка при обработке Множества. Пропущен разделитель \'" + COMMA + "\'" #Ожидался символ \'" + COMMA + "\' или <конец строки>. Получено \'" + next_token + "\'. "
                 raise Exception(err_msg)
             elif next_token == ANALIZ:
                 break
