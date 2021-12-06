@@ -80,11 +80,11 @@ def get_next_token(tokens, number):
         except IndexError:
             err_msg = ""
             lst = []
-            for var in variables:
-                lst.append(var + " = " + str(variables[var]))
-            lst.reverse()
-            for elem in lst:
-                err_msg += elem + "\n"
+            # for var in variables:
+            #     lst.append(var + " = " + str(variables[var]))
+            # lst.reverse()
+            # for elem in lst:
+            #     err_msg += elem + "\n"
             is_error = False
             raise Exception(err_msg)
         dump.append(result)
@@ -139,11 +139,27 @@ def is_int(token):
 
 def is_float(token):
     global err_code
-    token = token.split('.')
-    if (len(token) != 2) or (is_int(token[0]) is False) or (is_int(token[1]) is False):
-        err_code = "Вещественное число должно состоять из целых чисел разделенных точкой."
-        return False
-    return True
+    match = re.match(ur"^\d+\.\d+", token)
+    if match:
+        return True
+    return False
+    # token = token.split('.')
+    # if (len(token) != 2) or (is_int(token[0]) is False) or (is_int(token[1]) is False):
+    #     err_code = "Вещественное число должно состоять из целых чисел разделенных точкой."
+    #     return False
+    # return True
+
+
+def throw_dummy_ex(next_token, err_msg):
+    if is_int(next_token) is True:
+        err_msg += " целое число \'" + next_token + "\'"
+        raise Exception(err_msg)
+    elif is_var(next_token) is True:
+        err_msg += " переменная \'" + next_token + "\'"
+        raise Exception(err_msg)
+    else:
+        err_msg += " \'" + next_token + "\'. "
+        raise Exception(err_msg)
 
 ######################################################
 
@@ -153,25 +169,26 @@ def definition(tokens):
     next_token = get_next_token(tokens, 1)
     while True:
         if next_token != METKI:
-            err_msg = "Ошибка при обработке Определения . Определение должно начинаться с \'" + METKI + "\'. Получено \'" + next_token + "\'. "
+            err_msg = "Ошибка. Программа не может начинаться с \'" + next_token + "\'"
             raise Exception(err_msg)
         while True:
             next_token = get_next_token(tokens, 1)
             if is_float(next_token) is False:
+                err_msg = "Ошибка. После \'" + dump[-2] + "\' не может идти"
                 if is_int(next_token) is True:
-                    err_msg = "Ошибка при обработке Определения. Ожидалось вещественное число. Получено целое число \'" + next_token + "\'. " + err_code
+                    err_msg += " целое число \'" + next_token + "\'"
                     raise Exception(err_msg)
                 elif is_var(next_token) is True:
-                    err_msg = "Ошибка при обработке Определения. Ожидалось вещественное число. Получена переменная \'" + next_token + "\'. " + err_code
+                    err_msg += " переменная \'" + next_token + "\'"
                     raise Exception(err_msg)
                 else:
-                    err_msg = "Ошибка при обработке Определения. Ожидалось вещественное число. Получено \'" + next_token + "\'. " + err_code
+                    err_msg += " \'" + next_token + "\'. "
                     raise Exception(err_msg)
             next_token = get_next_token(tokens, 1)
             if next_token != SEMICOLON:
                 break
         if next_token != METKI and is_float(next_token) is True:
-            err_msg = "Ошибка при обработке определения. Пропущен разделитель \'" + SEMICOLON + "\'"
+            err_msg = "Ошибка. Два вещественных числа рядом. Пропущен разделитель \'" + SEMICOLON + "\'"
             raise Exception(err_msg)
         elif next_token != METKI:
             return next_token
@@ -187,44 +204,84 @@ def operator(tokens, next_token):
         is_metka = False
         if not first_iter:
             if is_float(next_token):
-                err_msg = "Ошибка при обработке правой части. Пропущен знак действия."
+                err_msg = "Ошибка. После \'" + dump[-2] + "\' пропущен знак действия"
                 raise Exception(err_msg)
         if is_int(next_token) is True:
             is_metka = True
             next_token = get_next_token(tokens, 1)
             if next_token != COLON:
-                err_msg = "Ошибка при обработке Оператора. После Метки ожидалось \'" + COLON + "\'. Получено " + next_token + ". "
-                raise Exception(err_msg)
+                err_msg = "Ошибка. После Метки \'" + dump[-2] + "\' не может идти"
+                if is_float(next_token) is True:
+                    err_msg += " вещественное число \'" + next_token + "\'"
+                    raise Exception(err_msg)
+                elif is_int(next_token) is True:
+                    err_msg += " целое число \'" + next_token + "\'"
+                    raise Exception(err_msg)
+                elif is_var(next_token) is True:
+                    err_msg += " переменная \'" + next_token + "\'"
+                    raise Exception(err_msg)
+                else:
+                    err_msg += " \'" + next_token + "\'. "
+                    raise Exception(err_msg)
             next_token = get_next_token(tokens, 1)
         if is_var(next_token) is False:
             if is_metka is True:
-                err_msg = "Ошибка при обработке Оператора. После Метки \':\' ожидалась Переменная. Получено: \'" + next_token + "\'. " + err_code
-                raise Exception(err_msg)
+                err_msg = "Ошибка. После \'Метка :\' не может идти"
+                if is_float(next_token) is True:
+                    err_msg += " вещественное число \'" + next_token + "\'"
+                    raise Exception(err_msg)
+                elif is_int(next_token) is True:
+                    err_msg += " целое число \'" + next_token + "\'"
+                    raise Exception(err_msg)
+                else:
+                    err_msg += " \'" + next_token + "\'. "
+                    raise Exception(err_msg)
             else:
-                err_msg = "Ошибка при обработке Оператора. Ожидалась Переменная или Метка. Получено \'" + next_token + "\'. " + err_code
-                raise Exception(err_msg)
+                err_msg = "Ошибка. После \'" + dump[-2] + "\' не может идти"
+                if is_float(next_token) is True:
+                    err_msg += " вещественное число \'" + next_token + "\'"
+                    raise Exception(err_msg)
+                elif is_int(next_token) is True:
+                    err_msg += " целое число \'" + next_token + "\'"
+                    raise Exception(err_msg)
+                else:
+                    err_msg += " \'" + next_token + "\'. "
+                    raise Exception(err_msg)
         current_var = next_token
         variables[current_var] = None
         next_token = get_next_token(tokens, 1)
         if next_token != EQUALS:
-            err_msg = "Ошибка при обработке Оператора. После переменной ожидалось \'=\'. "
-            raise Exception(err_msg)
+            err_msg = "Ошибка. После переменной \'" + dump[-2] + "\' не может идти"
+            if is_float(next_token) is True:
+                err_msg += " вещественное число \'" + next_token + "\'"
+                raise Exception(err_msg)
+            elif is_int(next_token) is True:
+                err_msg += " целое число \'" + next_token + "\'"
+                raise Exception(err_msg)
+            elif is_var(next_token) is True:
+                err_msg += " переменная \'" + next_token + "\'"
+                raise Exception(err_msg)
+            else:
+                err_msg += " \'" + next_token + "\'. "
+                raise Exception(err_msg)
         next_token, rp = right_part(tokens, get_next_token(tokens, 1))
         first_iter = False
         variables[current_var] = rp
-        if next_token == ANALIZ:
+        if is_int(next_token) is False and is_var(next_token) is False:
             return next_token
+        # if next_token == ANALIZ:
+        #     return next_token
 
 
 def block_3(tokens, next_token):
-    global k, variables, err_code, prev_token
+    global k, variables, err_code, prev_token, dump
 
     if next_token is None:
-        err_msg = "Ошибка при обработке Правой Части. После операнда отсутствует оператор. " + err_code
+        err_msg = "Ошибка. После \'" + dump[-2] + "\' нет знака действия."
         raise Exception(err_msg)
     elif is_var(next_token):
         if next_token not in variables:
-            err_msg = "Ошибка при обработке Правой Части. Переменная \'" + next_token + "\' не определена"
+            err_msg = "Ошибка. Переменная \'" + next_token + "\' не определена"
             raise Exception(err_msg)
         b3 = float(variables[next_token])
         return get_next_token(tokens, 1), b3
@@ -235,30 +292,29 @@ def block_3(tokens, next_token):
         next_token = get_next_token(tokens, 1)
         next_token, rp = right_part(tokens, next_token)
         if next_token != RIGHT_ROUND_BRACKET:
-            err_msg = "Ошибка при обработке Правой Части. Отсутствует " + "\')\'" + ". Получено \'" + str(next_token) + "\'"
+            err_msg = "Ошибка. Отсутствует закрывающая круглая скобка \')\'"# + ". Получено \'" + str(next_token) + "\'"
             raise Exception(err_msg)
         return get_next_token(tokens, 1), rp
     elif next_token == LEFT_SQUARE_BRACKET:
         if k > 2:
-            err_msg = "Ошибка при обработке Правой Части. Получена глубина вложенности квадратных скобок > 2."
+            err_msg = "Ошибка. Глубина вложенности квадратных скобок > 2."
             raise Exception(err_msg)
         k += 1
         next_token = get_next_token(tokens, 1)
         next_token, rp = right_part(tokens, next_token)
         k = 1
         if next_token != RIGHT_SQUARE_BRACKET:
-            err_msg = "Ошибка при обработке Правой Части. Отсутствует " + "\']\'" + ". Получено \'" + str(next_token) + "\'"
+            err_msg = "Ошибка. Отсутствует закрывающая квадратная скобка \']\'" #+ ". После \'" + str(next_token) + "\'"
             raise Exception(err_msg)
         return get_next_token(tokens, 1), rp
     elif is_int(next_token):
-        err_msg = "Ошибка при обработке Правой Части. Ожидалось вещественное число, переменная или круглая/квадратная скобка. Получено целое число \'" + str(next_token) + "\'. " + err_code
+        err_msg = "Ошибка. После \'" + dump[-2] + "\' не может идти целое число \'" + str(next_token) + "\'. "
         raise Exception(err_msg)
     else:
-        err_msg = "Ошибка при обработке Правой Части."
+        err_msg = "Ошибка."
         if next_token in [MINUS, PLUS, DIV, MULT, DEGREE]:
             err_msg += " Два знака действия подряд."
-        # elif next_token
-        err_msg += " Ожидалось вещественное число или скобка. Получено \'" + str(next_token) + "\'. " + err_code
+        err_msg += " После \'" + dump[-2] + "\' не может идти \'" + str(next_token) + "\'. "
         raise Exception(err_msg)
 
 
@@ -289,7 +345,7 @@ def block_1(tokens, next_token):
                 b1 /= b2
             else:
                 current_token = str(b2)
-                err_msg = "Ошибка при обработке правой части. Деление на \'0\'"
+                err_msg = "Ошибка. Деление на \'0\'"
                 raise Exception(err_msg)
 
 
@@ -328,17 +384,41 @@ def _set(tokens, next_token):
     global err_code
     while True:
         if next_token != ANALIZ:
-            err_msg = "Ошибка при обработке Множества. Ожидалось \'" + ANALIZ + "\'. Получено \'" + next_token + "\'. "
+            err_msg = "Ошибка. Множество не может начинаться с \'" + next_token + "\'"
             raise Exception(err_msg)
         next_token = get_next_token(tokens, 1)
         while True:
             if is_int(next_token) is False:
-                err_msg = "Ошибка при обработке Множества. Ожидалось целое число. Получено \'" + next_token + "\'. " + err_code
-                raise Exception(err_msg)
+                err_msg = "Ошибка. После \'" + dump[-2] + "\' не может идти"
+                if is_float(next_token) is True:
+                    err_msg += " вещественное число \'" + next_token + "\'"
+                    raise Exception(err_msg)
+                elif is_var(next_token) is True:
+                    err_msg += " переменная \'" + next_token + "\'"
+                    raise Exception(err_msg)
+                else:
+                    err_msg += " \'" + next_token + "\'. "
+                    raise Exception(err_msg)
+                # raise Exception(err_msg)
             next_token = get_next_token(tokens, 1)
             if next_token != COMMA and next_token != ANALIZ:
-                err_msg = "Ошибка при обработке Множества. Пропущен разделитель \'" + COMMA + "\'" #Ожидался символ \'" + COMMA + "\' или <конец строки>. Получено \'" + next_token + "\'. "
-                raise Exception(err_msg)
+                if is_int(next_token):
+                    err_msg = "Ошибка. Два целых числа рядом. Пропущен разделитель \'" + COMMA + "\'"
+                    raise Exception(err_msg)
+                else:
+                    err_msg = "Ошибка. После \'" + dump[-2] + "\' не может идти"
+                    if is_float(next_token) is True:
+                        err_msg += " вещественное число \'" + next_token + "\'"
+                        raise Exception(err_msg)
+                    elif is_int(next_token) is True:
+                        err_msg += " целое число \'" + next_token + "\'"
+                        raise Exception(err_msg)
+                    elif is_var(next_token) is True:
+                        err_msg += " переменная \'" + next_token + "\'"
+                        raise Exception(err_msg)
+                    else:
+                        err_msg += " \'" + next_token + "\'. "
+                        raise Exception(err_msg)
             elif next_token == ANALIZ:
                 break
             next_token = get_next_token(tokens, 1)
@@ -374,7 +454,7 @@ def split_tokens(str):
 
 
 def start_parse():
-    global is_error, current_token, idx, err_code, global_input
+    global is_error, current_token, idx, err_code, global_input, variables
     err_code = ""
     idx = 0
     current_token = None
@@ -398,7 +478,6 @@ def start_parse():
     except Exception as e:
         print(e.message)
         text_edit.delete(0.1, tk.END)
-        # idx -= 2
         while global_input[idx] != current_token:
             idx += 1
         text_edit.insert(tk.END, "".join(global_input[:idx]))
@@ -414,28 +493,20 @@ def start_parse():
             text_edit.insert(tk.END, "".join(global_input[idx:]))
         output.configure(state=tk.NORMAL)
         output.delete(0.1, tk.END)
-        output.insert(0.1, e.message)
+
+        err_msg = ""
+        lst = []
+        for var in variables:
+            if variables[var] != None:
+                lst.append(var + " = " + str(variables[var]))
+        lst.reverse()
+        for elem in lst:
+            err_msg += elem + "\n"
+
+        err_msg += e.message
+        output.insert(0.1, err_msg)
         output.configure(state=tk.DISABLED)
         return e.message
-
-
-def add_spaces(lst):
-    tmp = lst[:]
-    i = 0
-    while True:
-        if i % 2 == 0:
-            tmp.insert(i + 1, " ")
-        i += 1
-        if i == len(tmp):
-            break
-    i = 0
-    while True:
-        if tmp[i] == "\n":
-            tmp.pop(i + 1)
-        i += 1
-        if i == len(tmp):
-            break
-    return tmp
 
 
 if __name__ == "__main__":
